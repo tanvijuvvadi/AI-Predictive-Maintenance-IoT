@@ -1,129 +1,70 @@
 # 🔧 AI-Powered Predictive Maintenance System for IoT Devices
 
-A machine-learning system that predicts equipment failures **about 8 hours before they happen**, using IoT-style sensor data (temperature, vibration, current, pressure, RPM). It runs on a **virtual IoT simulator**, so no physical hardware is needed.
+Predict machine failures **hours before they happen** using IoT-style sensor data (temperature, vibration, current, pressure, RPM) and machine learning. Built with a **virtual IoT simulator**, so no hardware is needed.
 
+![Failure prediction timeline](images/07_failure_prediction_timeline.png)
 
-## 📌 Overview
-Factories lose money when machines break unexpectedly. This project learns the sensor patterns that appear before a machine fails, predicts the probability of failure, and raises WARNING/CRITICAL alerts so maintenance can be scheduled in time.
-
-## ❓ Problem Statement
-- **Reactive maintenance** (fix after failure) causes unplanned downtime and safety risks.
-- **Scheduled maintenance** (fixed intervals) wastes parts and labour.
-- **Predictive maintenance** repairs a machine only when its sensor data shows it is about to fail.
+## 📌 Problem Statement
+Reactive maintenance ("fix it when it breaks") causes unplanned downtime, safety risks and high repair cost. Predictive maintenance monitors sensor trends and raises an alert **before** failure so repairs can be scheduled.
 
 ## 🏭 Industry Relevance
-Used in manufacturing plants, power plants, automotive production and aviation engine monitoring. Companies such as Siemens, Bosch, GE and Schneider Electric, and platforms like AWS IoT and Azure IoT, offer predictive maintenance for smart factories (Industry 4.0).
+Manufacturing plants, power plants, automotive, aviation and smart-factory platforms (Siemens, Bosch, GE, Schneider Electric, AWS IoT, Azure IoT) use this idea to cut downtime and maintenance cost.
 
 ## 🧰 Tech Stack
-| Area | Tools |
-|---|---|
-| Language | Python 3.10+ |
-| Data | Pandas, NumPy |
-| ML | Scikit-learn (Logistic Regression, Random Forest) |
-| Visualization | Matplotlib, Seaborn |
-| Deployment (optional) | Flask API |
-| Environment | Google Colab / Jupyter / VS Code |
+Python 3.10+, Pandas, NumPy, Scikit-learn (Logistic Regression, Random Forest), Matplotlib, Seaborn, Joblib, Flask (optional API).
 
 ## 📊 Dataset (Virtual Simulation)
-No real hardware was available, so a simulator generates the data:
-- 40 virtual machines, about 35,000 readings (one every 10 minutes)
-- Sensors: temperature, vibration, current, pressure, RPM
-- Each machine runs healthy, degrades (heat, vibration and current rise; pressure and RPM fall), then fails
-- Includes daily load cycles, sensor noise, harmless random spikes and about 1% missing values
-- **Label:** `failure = 1` if the machine fails within the next 48 readings (about 8 hours)
-
-> The pipeline also works with real datasets such as NASA C-MAPSS or AI4I 2020 by replacing the data file.
+`src/data_generator.py` simulates 40 machines (~35k readings, one every 10 min). Each machine runs healthy, then degrades (temperature, vibration and current rise; pressure and RPM fall) until failure. It includes daily load cycles, random harmless spikes, sensor noise and ~1% missing values.
+Label `failure = 1` means failure occurs within the next 48 readings (~8 hours).
+> The same pipeline works with real datasets (NASA C-MAPSS, AI4I 2020, Microsoft Azure PdM): replace `data/iot_sensor_data.csv` and adjust column names in `config.py`.
 
 ## 🏗️ Architecture
-
-Virtual IoT sensors
-        │
-        ▼
- Data cleaning (fill missing values)
-        │
-        ▼
- Feature engineering (rolling mean/std, differences, ratios)
-        │
-        ▼
- ML model (Logistic Regression / Random Forest)
-        │
-        ▼
- Failure probability ──► Alert (OK / WARNING / CRITICAL)
-        │
-        ▼
- Graphs, alert log, live simulation
- ---
-
-## 📁 Project Structure
-
-AI-Predictive-Maintenance-IoT/
-├── data/            # generated dataset
-├── notebooks/       # Google Colab notebook
-├── src/             # modular Python code
-├── models/          # saved model
-├── outputs/         # metrics, alert log, predictions
-├── images/          # result graphs
-├── docs/            # project and GitHub guides
-├── README.md
-├── requirements.txt
-├── .gitignore
-└── main.py
+```
+Virtual sensors -> Cleaning -> Feature engineering -> ML model -> Probability -> Alert -> Dashboard/plots
+```
+See `docs/PROJECT_GUIDE.md` for the detailed diagram.
 
 ## ⚙️ Installation
-bash
-git clone https://github.com/your-username/AI-Predictive-Maintenance-IoT.git
+```bash
+git clone https://github.com/<your-username>/AI-Predictive-Maintenance-IoT.git
 cd AI-Predictive-Maintenance-IoT
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-
+```
 
 ## ▶️ Usage
-**Option 1: Google Colab (easiest).** Open the notebook in `notebooks/` and run all cells.
-
-**Option 2: Run locally.**
-bash
-python main.py                  # data -> train -> evaluate -> graphs
-python -m src.simulate_live     # live alert stream
-python -m src.api               # optional Flask API
-
-API test:
-bash
+```bash
+python main.py                  # full pipeline: data -> train -> evaluate -> plots
+python -m src.simulate_live     # replay a machine as a live stream with alerts
+python -m src.api               # optional Flask API on http://127.0.0.1:5000/predict
+```
+API example:
+```bash
 curl -X POST http://127.0.0.1:5000/predict -H "Content-Type: application/json" \
   -d '{"temperature":95,"vibration":6,"current":15,"pressure":85,"rpm":1400}'
+```
 
-Response: `{"alert": "CRITICAL", "failure_probability": 1.0}`
-
-## 📈 Results
-Evaluated on 10 machines the model never saw during training (split by machine to avoid data leakage).
-
+## 📈 Results (test machines never seen in training)
 | Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
 |---|---|---|---|---|---|
 | Logistic Regression | 0.986 | 0.799 | 0.984 | 0.882 | 0.999 |
 | Random Forest | 0.986 | 0.831 | 0.922 | 0.874 | 0.999 |
 
-- **Recall of 98%:** almost every upcoming failure was caught
-- **Average warning lead time: about 10 hours** before failure
-- Recall is the key metric, because a missed failure costs far more than a false alarm
-- Results come from synthetic data, so real-world scores would be lower
+Alerts fired **7 to 13 hours before failure** on all 10 test machines (`outputs/alert_log.csv`).
+Recall matters most here: a missed failure is costlier than a false alarm.
+> Results come from synthetic data, so scores are optimistic compared with real plants.
 
+## 🖼️ Screenshots
+| Sensor trends | Confusion matrix | Feature importance |
+|---|---|---|
+| ![](images/03_sensor_trends.png) | ![](images/04_confusion_matrix.png) | ![](images/06_feature_importance.png) |
 
 ## 🎓 Learning Outcomes
-- Simulating IoT sensor data and failure behaviour
-- Cleaning time-series data and handling missing values
-- Feature engineering with rolling statistics
-- Handling imbalanced classes
-- Preventing data leakage by splitting on machines
-- Evaluating with precision, recall, F1 and ROC-AUC
-- Designing an alert system and serving predictions with Flask
+Time-series feature engineering, handling imbalanced classes, leakage-free splitting by machine, evaluation beyond accuracy, alert design, simple model deployment with Flask.
 
-## 🔮 Future Improvements
-- LSTM/GRU deep-learning model
-- Remaining Useful Life (RUL) prediction
-- Streamlit dashboard
-- Real-time streaming with MQTT
-- Training on NASA C-MAPSS data
-- Docker deployment
+## 🔮 Future Work
+LSTM/GRU model, Remaining Useful Life regression, Streamlit dashboard, MQTT streaming, Docker, real NASA C-MAPSS data.
 
-
-
+## 📄 License
+MIT
